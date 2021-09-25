@@ -1,0 +1,85 @@
+# Fashion MNIST 데이터를 이용하여 손글씨를 식별하는 DNN 구축하기
+import tensorflow as tf
+from tensorflow.keras import datasets, models
+from tensorflow.keras.layers import Flatten, Dense, Dropout, Conv2D, MaxPool2D
+from tensorflow.keras.utils import plot_model
+
+print(tf.__version__)
+
+fashion_mnist = datasets.fashion_mnist
+(train_x, train_y), (test_x, test_y) = fashion_mnist.load_data()
+train_x = train_x/255.0
+test_x = test_x/255.0
+
+import numpy as np
+
+## train, valid set split
+np.random.seed(1234)
+valid_ind = np.random.choice(np.arange(train_x.shape[0]), 10000, replace=False)
+rest_ind = np.setdiff1d(np.arange(train_x.shape[0]), valid_ind)
+
+n_train = 500
+
+train_ind = np.random.choice(rest_ind, n_train, replace=False)
+
+valid_x, valid_y = train_x[valid_ind], train_y[valid_ind]
+train_x, train_y = train_x[train_ind], train_y[train_ind]
+
+print(train_x.shape)
+print(valid_x.shape)
+
+import matplotlib.pyplot as plt
+
+plt.figure(figsize=(5,5))
+for coll in range(9):
+  plt.subplot(3,3,coll+1)
+  plt.imshow(train_x[coll], cmap=plt.cm.binary)
+  plt.xticks([])
+  plt.yticks([])
+plt.show()
+
+model = models.Sequential([
+  Flatten(input_shape=(28,28)),
+  Dense(300, activation='relu'),
+  Dense(300, activation='relu'),
+  Dense(10, activation='softmax')]
+)
+
+model_dr = models.Sequential([
+  Flatten(input_shape=(28,28)),
+  Dense(300, activation='relu'),
+  Dropout(0.7),
+  Dense(300, activation='relu'),
+  Dropout(0.7),
+  Dense(10, activation='softmax')]
+)
+model.summary()
+model_dr.summary()
+
+plot_model(model, to_file='model_fashion_mnist.png', show_shapes=True)
+plot_model(model, to_file='model_dr_fashion_mnist.png', show_shapes=True)
+
+model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+model_dr.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+
+hist=model.fit(train_x, train_y, epochs=100, batch_size=100, validation_data=(valid_x, valid_y))
+hist_dr=model_dr.fit(train_x, train_y, epochs=100, batch_size=100, validation_data=(valid_x, valid_y))
+
+plt.figure(figsize=(8,6))
+plt.plot(hist.history['accuracy'][50:100], 'b--', label='train (w/o dr)')
+plt.plot(hist.history['val_accuracy'][50:100], 'b-', label='test (w/o dr)')
+plt.plot(hist_dr.history['accuracy'][50:100], 'r--', label='train (w/ dr)')
+plt.plot(hist_dr.history['val_accuracy'][50:100], 'r-', label='test (w/ dr)')
+
+plt.xlabel('Epoch', fontsize=12)
+plt.ylabel('Accuracy', fontsize=12)
+plt.legend(loc='lower right', fontsize=12)
+plt.title('Accuracy trace plot', fontsize=15)
+plt.show()
+
+sc = model.evaluate(test_x, test_y)
+sc_dr = model_dr.evaluate(test_x, test_y)
+print('Model stats (w/o dropout)')
+print('...accuracy: %.3f, loss: %.3f'%(sc[1], sc[0]))
+print('Model stats (w/ dropout)')
+print('...accuracy: %.3f, loss: %.3f'%(sc_dr[1], sc_dr[0]))
